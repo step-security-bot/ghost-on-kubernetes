@@ -16,7 +16,7 @@ RUN yarn config set network-timeout 60000 && \
 		yarn global add ghost-cli@latest
 
 # Define the GHOST_VERSION build argument and set it as an environment variable
-ARG GHOST_VERSION=5.82.4
+ARG GHOST_VERSION
 ENV GHOST_VERSION $GHOST_VERSION
 
 # Set the installation directory, content directory, and original content directory for Ghost
