@@ -6,14 +6,9 @@ FROM docker.io/node:iron-buster AS build-env
 
 ENV NODE_ENV production
 ENV DEBIAN_FRONTEND noninteractive
-
-
-# Set the NODE_ENV environment variable to "production"
-# ENV NODE_ENV production 
 USER root
 
-RUN apt-get update && apt-get install --no-install-recommends --no-install-suggests -y libvips-dev ca-certificates && \
-    update-ca-certificates
+RUN apt update && apt install --no-install-recommends --no-install-suggests -y libvips-dev
 
 # Install the latest version of Ghost CLI globally and clean the npm cache
 RUN yarn config set network-timeout 60000 && \
@@ -21,8 +16,8 @@ RUN yarn config set network-timeout 60000 && \
 		yarn global add ghost-cli@latest
 
 # Define the GHOST_VERSION build argument and set it as an environment variable
-ARG GHOST_VERSION
-ENV GHOST_VERSION $GHOST_VERSION 
+ARG GHOST_VERSION=5.82.4
+ENV GHOST_VERSION $GHOST_VERSION
 
 # Set the installation directory, content directory, and original content directory for Ghost
 ENV GHOST_INSTALL /var/lib/ghost
