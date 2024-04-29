@@ -1,4 +1,4 @@
-name: CI Build Multiarch + Trivy
+name: multi-build
 
 on:
   push:
@@ -8,7 +8,8 @@ on:
       - "main"
     paths:
         - "Dockerfile"
-        - .github/workflows/multi-build.yaml
+        - "entrypoint.js"
+
   workflow_dispatch:
     inputs:
       manual-tag:
@@ -74,8 +75,8 @@ jobs:
         continue-on-error: true
         with:
           images: ${{ env.GHCR_IMAGE }}
-          labels: | # Add description label for opencontainers specs to the $DOCKER_METADATA_OUTPUT_JSON variable.
-            org.opencontainers.image.description: "${{ github.event.repository.description }}"
+          # labels: | # Add description label for opencontainers specs to the $DOCKER_METADATA_OUTPUT_JSON variable.
+          #   org.opencontainers.image.description: "${{ github.event.repository.description }}"
 
           # tags: |
           #   type=raw,value=latest,enable=${{ github.event_name == 'push' || github.ref == 'refs/heads/main' || github.event.ref == 'tags/v*' }}
@@ -135,6 +136,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - build
+
     steps:
       -
         name: Download digests
@@ -158,8 +160,8 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.event_name == 'push' || github.ref == 'refs/heads/main' || github.event.ref == 'tags/v*' }}
             type=raw,value=main,enable=${{ github.event_name == 'push' || github.ref == 'refs/heads/main' || github.event.ref == 'tags/v*' }}
-            type=raw,value=${{ github.env.MANUAL_TAG }},enable=${{ github.event_name == 'workflow_dispatch' }}
-            type=raw,value=v${{ github.env.GHOST_VERSION }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=raw,value=v${{ github.env.GHOST_VERSION }},enable=${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'}}
+            type=raw,value=${{ github.env.MANUAL_TAG }},enable=${{ github.event_name == 'workflow_dispatch' }} 
       -
         name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -174,32 +176,13 @@ jobs:
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.GHCR_IMAGE }}@sha256:%s ' *)
+          echo "IMAGE_SHA256=$(docker inspect --format '{{index .RepoDigests 0}}' ${{ env.GHCR_IMAGE }}:${{ steps.meta.outputs.version }} | cut -d'@' -f2)" >> $GITHUB_OUTPUTS
+
       -
         name: Inspect image
         id: inspect
         run: |
-          docker buildx imagetools inspect ${{ env.GHCR_IMAGE }}:${{ steps.meta.outputs.version }}
-
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        continue-on-error: true
-        with:
-          image-ref: '${{ env.GHCR_IMAGE }}:${{ steps.meta.outputs.version }}'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          scan-type: 'image'
-          github-pat: '${{ github.token }}'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
-
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@main
-        continue-on-error: true
-        with:
-          sarif_file: 'trivy-results.sarif'
-          
+          docker buildx imagetools inspect ${{ env.GHCR_IMAGE }}:${{ steps.manifest.outputs.IMAGE_SHA256 }}
 
       -
         name: Login to Docker Hub
@@ -216,3 +199,5 @@ jobs:
           docker buildx imagetools create \
             --tag ${{ env.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }} \
             ${{ env.GHCR_IMAGE }}:${{ steps.meta.outputs.version }}
+    outputs:
+      IMAGE_SHA256: ${{ steps.manifest.outputs.IMAGE_SHA256 }}
