@@ -23,7 +23,7 @@ jobs:
           egress-policy: audit
 
       - name: Delete 'ghost-on-kubernetes' containers older than a week
-        uses: sredevopsorg/container-retention-policy@main # v2.0.1
+        uses: sredevopsorg/container-retention-policy@02d5e52c7b835490e509f98451d8fc99ce427b9c # main
         with:
           image-names: ghost-on-kubernetes
           cut-off: A week ago UTC
